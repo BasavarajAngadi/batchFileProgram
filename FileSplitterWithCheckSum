@@ -1,0 +1,103 @@
+import org.apache.commons.io.FileUtils;
+
+import java.io.*;
+import java.nio.file.*;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.List;
+
+public class FileSplitterWithCheckSum {
+
+    public static void main(String[] args) {
+        String inputFilePath = "path/to/largefile.txt";
+        String outputDirectory = "path/to/output/directory";
+        int chunkSizeInBytes = 1024 * 1024; // 1 MB chunk size
+
+        try {
+            List<String> chunkFileList = splitFile(inputFilePath, outputDirectory, chunkSizeInBytes);
+            verifySplitSizesAndChecksum(inputFilePath, outputDirectory, chunkFileList);
+        } catch (IOException | NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static List<String> splitFile(String inputFilePath, String outputDirectory, int chunkSize) throws IOException {
+        List<String> chunkFileList = new ArrayList<>();
+
+        try (InputStream inputStream = new BufferedInputStream(new FileInputStream(inputFilePath))) {
+            byte[] buffer = new byte[chunkSize];
+            int bytesRead;
+
+            int partNumber = 1;
+
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                String partFileName = String.format("%s/part_%03d", outputDirectory, partNumber);
+                chunkFileList.add(partFileName);
+
+                try (OutputStream outputStream = new BufferedOutputStream(new FileOutputStream(partFileName))) {
+                    outputStream.write(buffer, 0, bytesRead);
+                }
+                partNumber++;
+            }
+        }
+
+        return chunkFileList;
+    }
+
+    private static void verifySplitSizesAndChecksum(String inputFilePath, String outputDirectory, List<String> chunkFileList)
+            throws IOException, NoSuchAlgorithmException {
+
+        File inputFile = new File(inputFilePath);
+        File outputDir = new File(outputDirectory);
+
+        long originalFileSize = inputFile.length();
+
+        long totalSplitSize = 0;
+        MessageDigest md = MessageDigest.getInstance("MD5");
+
+        for (String chunkFileName : chunkFileList) {
+            File splitFile = new File(chunkFileName);
+
+            try (InputStream splitInputStream = new BufferedInputStream(new FileInputStream(splitFile))) {
+                byte[] buffer = new byte[1024];
+                int bytesRead;
+
+                while ((bytesRead = splitInputStream.read(buffer)) != -1) {
+                    md.update(buffer, 0, bytesRead);
+                }
+
+                totalSplitSize += splitFile.length();
+            }
+        }
+
+        String originalChecksum = calculateChecksum(inputFile, md);
+
+        if (originalFileSize == totalSplitSize) {
+            System.out.println("Split sizes match: " + originalFileSize + " bytes");
+            System.out.println("Checksum match: " + originalChecksum);
+        } else {
+            System.out.println("Error: Split sizes do not match!");
+        }
+    }
+
+    private static String calculateChecksum(File file, MessageDigest md) throws IOException {
+        try (InputStream inputStream = new FileInputStream(file)) {
+            byte[] buffer = new byte[1024];
+            int bytesRead;
+
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                md.update(buffer, 0, bytesRead);
+            }
+        }
+
+        byte[] checksumBytes = md.digest();
+
+        StringBuilder checksumStringBuilder = new StringBuilder();
+        for (byte b : checksumBytes) {
+            checksumStringBuilder.append(String.format("%02x", b));
+        }
+
+        return checksumStringBuilder.toString();
+    }
+}
