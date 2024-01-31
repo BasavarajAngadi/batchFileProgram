@@ -1,0 +1,56 @@
+import org.apache.commons.io.FileUtils;
+
+import java.io.File;
+import java.io.IOException;
+
+public class FileSplitter {
+
+    public static void main(String[] args) {
+        String inputFilePath = "path/to/largefile.txt";
+        String outputDirectory = "path/to/output/directory";
+        int chunkSizeInBytes = 1024 * 1024; // 1 MB chunk size
+
+        try {
+            splitFile(inputFilePath, outputDirectory, chunkSizeInBytes);
+            verifySplitSizes(inputFilePath, outputDirectory, chunkSizeInBytes);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void splitFile(String inputFilePath, String outputDirectory, int chunkSize) throws IOException {
+        File inputFile = new File(inputFilePath);
+        File outputDir = new File(outputDirectory);
+
+        if (!outputDir.exists()) {
+            outputDir.mkdirs();
+        }
+
+        FileUtils.copyFileToDirectory(inputFile, outputDir, chunkSize);
+    }
+
+    private static void verifySplitSizes(String inputFilePath, String outputDirectory, int chunkSize) throws IOException {
+        File inputFile = new File(inputFilePath);
+        File outputDir = new File(outputDirectory);
+
+        long originalFileSize = FileUtils.sizeOf(inputFile);
+
+        File[] splitFiles = outputDir.listFiles();
+
+        if (splitFiles != null) {
+            long totalSplitSize = 0;
+
+            for (File splitFile : splitFiles) {
+                totalSplitSize += FileUtils.sizeOf(splitFile);
+            }
+
+            if (originalFileSize == totalSplitSize) {
+                System.out.println("Split sizes match: " + originalFileSize + " bytes");
+            } else {
+                System.out.println("Error: Split sizes do not match!");
+            }
+        } else {
+            System.out.println("No split files found!");
+        }
+    }
+}
